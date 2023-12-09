@@ -8,13 +8,13 @@ import (
 	"github.com/xanzy/go-gitlab"
 )
 
-func old_main() {
+func main() {
 	baseURL := os.Getenv("GITLAB_BASE_URL")
 	fmt.Printf("GitLab Base URL Name: %s\n", baseURL)
 	fmt.Println("-------------------")
 	token := os.Getenv("GITLAB_ACCESS_TOKEN")
-	group := 24946 // 545
-	epic_id := 13
+	group := 25247
+	board_id := 671
 
 	// Create a new GitLab client with your access token
 	gitlabClient, err := gitlab.NewClient(token, gitlab.WithBaseURL(baseURL))
@@ -22,22 +22,17 @@ func old_main() {
 		log.Fatal(err)
 	}
 
-	// Create new epic board
-	my_board, _, err := gitlabClient.GroupEpicBoards.GetGroupEpicBoard(group, epic_id)
+	// Read group issue board
+	my_board, _, err := gitlabClient.GroupIssueBoards.GetGroupIssueBoard(group, board_id)
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("Retrieved epic board: %s\n", my_board.Name)
+	log.Printf("Retrieved group issue board: %s\n", my_board.Name)
 	fmt.Println("-------------------")
 
-	boards, _, err := gitlabClient.GroupEpicBoards.ListGroupEpicBoards(group, nil)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	// Print project names and their respective URLs
-	for _, board := range boards {
-		fmt.Printf("Board Name: %s\n", board.Name)
+	for _, label := range my_board.Labels {
+		fmt.Printf("Scoped Label %s color %s", label.Name, label.Color)
 		fmt.Println("-------------------")
 	}
+
 }
