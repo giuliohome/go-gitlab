@@ -16,7 +16,7 @@ func TestListGroupPendingInvites(t *testing.T) {
 	})
 
 	opt := &ListPendingInvitationsOptions{
-		ListOptions: ListOptions{2, 3},
+		ListOptions: ListOptions{Page: 2, PerPage: 3},
 	}
 
 	projects, _, err := client.Invites.ListPendingGroupInvitations("test", opt)
@@ -39,7 +39,7 @@ func TestGroupInvites(t *testing.T) {
 	})
 
 	opt := &InvitesOptions{
-		Email: String("example@member.org"),
+		Email: Ptr("example@member.org"),
 	}
 
 	projects, _, err := client.Invites.GroupInvites("test", opt)
@@ -62,7 +62,7 @@ func TestGroupInvitesError(t *testing.T) {
 	})
 
 	opt := &InvitesOptions{
-		Email: String("example@member.org"),
+		Email: Ptr("example@member.org"),
 	}
 
 	projects, _, err := client.Invites.GroupInvites("test", opt)
@@ -85,7 +85,7 @@ func TestListProjectPendingInvites(t *testing.T) {
 	})
 
 	opt := &ListPendingInvitationsOptions{
-		ListOptions: ListOptions{2, 3},
+		ListOptions: ListOptions{Page: 2, PerPage: 3},
 	}
 
 	projects, _, err := client.Invites.ListPendingProjectInvitations("test", opt)
@@ -108,7 +108,7 @@ func TestProjectInvites(t *testing.T) {
 	})
 
 	opt := &InvitesOptions{
-		Email: String("example@member.org"),
+		Email: Ptr("example@member.org"),
 	}
 
 	projects, _, err := client.Invites.ProjectInvites("test", opt)
@@ -131,7 +131,7 @@ func TestProjectInvitesError(t *testing.T) {
 	})
 
 	opt := &InvitesOptions{
-		Email: String("example@member.org"),
+		Email: Ptr("example@member.org"),
 	}
 
 	projects, _, err := client.Invites.ProjectInvites("test", opt)

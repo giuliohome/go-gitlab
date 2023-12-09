@@ -247,16 +247,16 @@ func TestProtectRepositoryEnvironments(t *testing.T) {
 	}
 
 	opt := &ProtectRepositoryEnvironmentsOptions{
-		Name: String("my-awesome-environment"),
+		Name: Ptr("my-awesome-environment"),
 		DeployAccessLevels: &[]*EnvironmentAccessOptions{
-			{AccessLevel: AccessLevel(30)},
+			{AccessLevel: Ptr(AccessLevelValue(30))},
 		},
-		RequiredApprovalCount: Int(2),
+		RequiredApprovalCount: Ptr(2),
 		ApprovalRules: &[]*EnvironmentApprovalRuleOptions{
 			{
-				GroupID:                Int(10),
-				AccessLevel:            AccessLevel(0),
-				AccessLevelDescription: String("devops"),
+				GroupID:                Ptr(10),
+				AccessLevel:            Ptr(AccessLevelValue(0)),
+				AccessLevelDescription: Ptr("devops"),
 			},
 		},
 	}
@@ -290,12 +290,269 @@ func TestProtectRepositoryEnvironments(t *testing.T) {
 	}
 
 	opt = &ProtectRepositoryEnvironmentsOptions{
-		Name: String("my-awesome-environment2"),
+		Name: Ptr("my-awesome-environment2"),
 		DeployAccessLevels: &[]*EnvironmentAccessOptions{
-			{AccessLevel: AccessLevel(30)},
+			{AccessLevel: Ptr(AccessLevelValue(30))},
 		},
 	}
 	environment, _, err = client.ProtectedEnvironments.ProtectRepositoryEnvironments(2, opt)
+	assert.NoError(t, err, "failed to get response")
+	assert.Equal(t, expected, environment)
+}
+
+func TestUpdateProtectedEnvironments(t *testing.T) {
+	mux, client := setup(t)
+
+	// Test with DeployAccessLevels, RequiredApprovalCount, and ApprovalRules as if adding new to existing protected environment
+	environmentName := "dev-test"
+
+	mux.HandleFunc(fmt.Sprintf("/api/v4/projects/1/protected_environments/%s", environmentName), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		fmt.Fprintf(w, `{
+      "name":"%s",
+      "deploy_access_levels": [
+        {
+          "id": 42,
+          "access_level": 30,
+          "access_level_description": "Developers + Maintainers"
+        }
+      ],
+      "required_approval_count": 2,
+      "approval_rules": [
+        {
+           "id": 1,
+           "user_id": null,
+           "group_id": 10,
+           "access_level": 5,
+           "access_level_description": "devops",
+           "required_approvals": 0,
+           "group_inheritance_type": 0
+        }
+      ]
+    }`, environmentName)
+	})
+
+	expected := &ProtectedEnvironment{
+		Name: environmentName,
+		DeployAccessLevels: []*EnvironmentAccessDescription{
+			{
+				ID:                     42,
+				AccessLevel:            30,
+				AccessLevelDescription: "Developers + Maintainers",
+			},
+		},
+		RequiredApprovalCount: 2,
+		ApprovalRules: []*EnvironmentApprovalRule{
+			{
+				ID:                     1,
+				GroupID:                10,
+				AccessLevel:            5,
+				AccessLevelDescription: "devops",
+			},
+		},
+	}
+
+	opt := &UpdateProtectedEnvironmentsOptions{
+		Name: Ptr(environmentName),
+		DeployAccessLevels: &[]*UpdateEnvironmentAccessOptions{
+			{AccessLevel: Ptr(AccessLevelValue(30))},
+		},
+		RequiredApprovalCount: Ptr(2),
+		ApprovalRules: &[]*UpdateEnvironmentApprovalRuleOptions{
+			{
+				GroupID:                Ptr(10),
+				AccessLevel:            Ptr(AccessLevelValue(0)),
+				AccessLevelDescription: Ptr("devops"),
+			},
+		},
+	}
+
+	environment, _, err := client.ProtectedEnvironments.UpdateProtectedEnvironments(1, environmentName, opt)
+	assert.NoError(t, err, "failed to get response")
+	assert.Equal(t, expected, environment)
+
+	// Test with DeployAccessLevels only, as if adding new to existing protected environment
+	mux.HandleFunc(fmt.Sprintf("/api/v4/projects/2/protected_environments/%s", environmentName), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		fmt.Fprintf(w, `{
+      "name":"%s",
+      "deploy_access_levels": [
+        {
+          "id": 42,
+          "access_level": 30,
+          "access_level_description": "Developers + Maintainers"
+        }
+      ]
+    }`, environmentName)
+	})
+
+	expected = &ProtectedEnvironment{
+		Name: environmentName,
+		DeployAccessLevels: []*EnvironmentAccessDescription{
+			{
+				ID:                     42,
+				AccessLevel:            30,
+				AccessLevelDescription: "Developers + Maintainers",
+			},
+		},
+	}
+
+	opt = &UpdateProtectedEnvironmentsOptions{
+		Name: Ptr(environmentName),
+		DeployAccessLevels: &[]*UpdateEnvironmentAccessOptions{
+			{AccessLevel: Ptr(AccessLevelValue(30))},
+		},
+	}
+	environment, _, err = client.ProtectedEnvironments.UpdateProtectedEnvironments(2, environmentName, opt)
+	assert.NoError(t, err, "failed to get response")
+	assert.Equal(t, expected, environment)
+
+	// Test update to DeployAccessLevel
+	mux.HandleFunc(fmt.Sprintf("/api/v4/projects/3/protected_environments/%s", environmentName), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		fmt.Fprintf(w, `{
+      "name":"%s",
+      "deploy_access_levels": [
+        {
+          "id": 42,
+          "access_level": 30,
+          "access_level_description": "Developers + Maintainers"
+        }
+      ],
+	  "required_approval_count": 2
+    }`, environmentName)
+	})
+
+	expected = &ProtectedEnvironment{
+		Name: environmentName,
+		DeployAccessLevels: []*EnvironmentAccessDescription{
+			{
+				ID:                     42,
+				AccessLevel:            30,
+				AccessLevelDescription: "Developers + Maintainers",
+			},
+		},
+		RequiredApprovalCount: 2,
+	}
+
+	opt = &UpdateProtectedEnvironmentsOptions{
+		Name: Ptr(environmentName),
+		DeployAccessLevels: &[]*UpdateEnvironmentAccessOptions{
+			{
+				ID:          Ptr(42),
+				AccessLevel: Ptr(AccessLevelValue(30)),
+			},
+		},
+	}
+	environment, _, err = client.ProtectedEnvironments.UpdateProtectedEnvironments(3, environmentName, opt)
+	assert.NoError(t, err, "failed to get response")
+	assert.Equal(t, expected, environment)
+
+	// Test update to ApprovalRules
+	mux.HandleFunc(fmt.Sprintf("/api/v4/projects/4/protected_environments/%s", environmentName), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		fmt.Fprintf(w, `{
+      "name":"%s",
+      "deploy_access_levels": [
+        {
+          "id": 42,
+          "access_level": 30,
+          "access_level_description": "Developers + Maintainers"
+        }
+      ],
+      "required_approval_count": 2,
+      "approval_rules": [
+        {
+           "id": 1,
+           "user_id": null,
+           "group_id": 10,
+           "access_level": 5,
+           "access_level_description": "devops",
+           "required_approvals": 0,
+           "group_inheritance_type": 0
+        }
+      ]
+    }`, environmentName)
+	})
+
+	expected = &ProtectedEnvironment{
+		Name: environmentName,
+		DeployAccessLevels: []*EnvironmentAccessDescription{
+			{
+				ID:                     42,
+				AccessLevel:            30,
+				AccessLevelDescription: "Developers + Maintainers",
+			},
+		},
+		RequiredApprovalCount: 2,
+		ApprovalRules: []*EnvironmentApprovalRule{
+			{
+				ID:                     1,
+				GroupID:                10,
+				AccessLevel:            5,
+				AccessLevelDescription: "devops",
+			},
+		},
+	}
+
+	opt = &UpdateProtectedEnvironmentsOptions{
+		Name: Ptr(environmentName),
+		ApprovalRules: &[]*UpdateEnvironmentApprovalRuleOptions{
+			{
+				ID:                     Ptr(1),
+				GroupID:                Ptr(10),
+				AccessLevel:            Ptr(AccessLevelValue(0)),
+				AccessLevelDescription: Ptr("devops"),
+			},
+		},
+	}
+
+	environment, _, err = client.ProtectedEnvironments.UpdateProtectedEnvironments(4, environmentName, opt)
+	assert.NoError(t, err, "failed to get response")
+	assert.Equal(t, expected, environment)
+
+	// Test destroy ApprovalRule
+	mux.HandleFunc(fmt.Sprintf("/api/v4/projects/5/protected_environments/%s", environmentName), func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodPut)
+		fmt.Fprintf(w, `{
+      "name":"%s",
+      "deploy_access_levels": [
+        {
+          "id": 42,
+          "access_level": 30,
+          "access_level_description": "Developers + Maintainers"
+        }
+      ],
+      "required_approval_count": 0,
+      "approval_rules": []
+    }`, environmentName)
+	})
+
+	expected = &ProtectedEnvironment{
+		Name: environmentName,
+		DeployAccessLevels: []*EnvironmentAccessDescription{
+			{
+				ID:                     42,
+				AccessLevel:            30,
+				AccessLevelDescription: "Developers + Maintainers",
+			},
+		},
+		RequiredApprovalCount: 0,
+		ApprovalRules:         []*EnvironmentApprovalRule{},
+	}
+
+	opt = &UpdateProtectedEnvironmentsOptions{
+		Name: Ptr(environmentName),
+		ApprovalRules: &[]*UpdateEnvironmentApprovalRuleOptions{
+			{
+				ID:      Ptr(1),
+				Destroy: Ptr(true),
+			},
+		},
+		RequiredApprovalCount: Ptr(0),
+	}
+
+	environment, _, err = client.ProtectedEnvironments.UpdateProtectedEnvironments(5, environmentName, opt)
 	assert.NoError(t, err, "failed to get response")
 	assert.Equal(t, expected, environment)
 }

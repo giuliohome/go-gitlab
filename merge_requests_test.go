@@ -159,6 +159,63 @@ func TestListProjectMergeRequests(t *testing.T) {
 
 	opts := ListProjectMergeRequestsOptions{
 		AssigneeID:             AssigneeID(UserIDAny),
+		WithLabelsDetails:      Ptr(true),
+		WithMergeStatusRecheck: Ptr(true),
+	}
+
+	mergeRequests, _, err := client.MergeRequests.ListProjectMergeRequests(278964, &opts)
+
+	require.NoError(t, err)
+	require.Equal(t, 20, len(mergeRequests))
+
+	validStates := []string{"opened", "closed", "locked", "merged"}
+	detailedMergeStatuses := []string{
+		"blocked_status",
+		"broken_status",
+		"checking",
+		"ci_must_pass",
+		"ci_still_running",
+		"discussions_not_resolved",
+		"draft_status",
+		"external_status_checks",
+		"mergeable",
+		"not_approved",
+		"not_open",
+		"policies_denied",
+		"unchecked",
+	}
+	allCreatedBefore := time.Date(2019, 8, 21, 0, 0, 0, 0, time.UTC)
+	allCreatedAfter := time.Date(2019, 8, 17, 0, 0, 0, 0, time.UTC)
+
+	for _, mr := range mergeRequests {
+		require.Equal(t, 278964, mr.ProjectID)
+		require.Contains(t, validStates, mr.State)
+		assert.Less(t, mr.CreatedAt.Unix(), allCreatedBefore.Unix())
+		assert.Greater(t, mr.CreatedAt.Unix(), allCreatedAfter.Unix())
+		assert.LessOrEqual(t, mr.CreatedAt.Unix(), mr.UpdatedAt.Unix())
+		assert.LessOrEqual(t, mr.TaskCompletionStatus.CompletedCount, mr.TaskCompletionStatus.Count)
+		require.Contains(t, detailedMergeStatuses, mr.DetailedMergeStatus)
+		// list requests do not provide these fields:
+		assert.Nil(t, mr.Pipeline)
+		assert.Nil(t, mr.HeadPipeline)
+		assert.Equal(t, "", mr.DiffRefs.HeadSha)
+	}
+}
+
+func TestListProjectMergeRequestsAuthorUsername(t *testing.T) {
+	mux, client := setup(t)
+
+	path := "/api/v4/projects/278964/merge_requests"
+
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testParams(t, r, "assignee_id=Any&author_username=hfyngvason&with_labels_details=true&with_merge_status_recheck=true")
+		mustWriteHTTPResponse(t, w, "testdata/get_merge_requests_author_username.json")
+	})
+
+	opts := ListProjectMergeRequestsOptions{
+		AssigneeID:             AssigneeID(UserIDAny),
+		AuthorUsername:         String("hfyngvason"),
 		WithLabelsDetails:      Bool(true),
 		WithMergeStatusRecheck: Bool(true),
 	}
@@ -166,7 +223,64 @@ func TestListProjectMergeRequests(t *testing.T) {
 	mergeRequests, _, err := client.MergeRequests.ListProjectMergeRequests(278964, &opts)
 
 	require.NoError(t, err)
-	require.Equal(t, 20, len(mergeRequests))
+	require.Equal(t, 1, len(mergeRequests))
+
+	validStates := []string{"opened", "closed", "locked", "merged"}
+	detailedMergeStatuses := []string{
+		"blocked_status",
+		"broken_status",
+		"checking",
+		"ci_must_pass",
+		"ci_still_running",
+		"discussions_not_resolved",
+		"draft_status",
+		"external_status_checks",
+		"mergeable",
+		"not_approved",
+		"not_open",
+		"policies_denied",
+		"unchecked",
+	}
+	allCreatedBefore := time.Date(2019, 8, 21, 0, 0, 0, 0, time.UTC)
+	allCreatedAfter := time.Date(2019, 8, 17, 0, 0, 0, 0, time.UTC)
+
+	for _, mr := range mergeRequests {
+		require.Equal(t, 278964, mr.ProjectID)
+		require.Contains(t, validStates, mr.State)
+		assert.Less(t, mr.CreatedAt.Unix(), allCreatedBefore.Unix())
+		assert.Greater(t, mr.CreatedAt.Unix(), allCreatedAfter.Unix())
+		assert.LessOrEqual(t, mr.CreatedAt.Unix(), mr.UpdatedAt.Unix())
+		assert.LessOrEqual(t, mr.TaskCompletionStatus.CompletedCount, mr.TaskCompletionStatus.Count)
+		require.Contains(t, detailedMergeStatuses, mr.DetailedMergeStatus)
+		// list requests do not provide these fields:
+		assert.Nil(t, mr.Pipeline)
+		assert.Nil(t, mr.HeadPipeline)
+		assert.Equal(t, "", mr.DiffRefs.HeadSha)
+	}
+}
+
+func TestListProjectMergeRequestsNotAuthorUsername(t *testing.T) {
+	mux, client := setup(t)
+
+	path := "/api/v4/projects/278964/merge_requests"
+
+	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testParams(t, r, "assignee_id=Any&not%5Bauthor_username%5D=hfyngvason&with_labels_details=true&with_merge_status_recheck=true")
+		mustWriteHTTPResponse(t, w, "testdata/get_merge_requests_not_author_username.json")
+	})
+
+	opts := ListProjectMergeRequestsOptions{
+		AssigneeID:             AssigneeID(UserIDAny),
+		NotAuthorUsername:      String("hfyngvason"),
+		WithLabelsDetails:      Bool(true),
+		WithMergeStatusRecheck: Bool(true),
+	}
+
+	mergeRequests, _, err := client.MergeRequests.ListProjectMergeRequests(278964, &opts)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, len(mergeRequests))
 
 	validStates := []string{"opened", "closed", "locked", "merged"}
 	detailedMergeStatuses := []string{
@@ -245,6 +359,34 @@ func TestGetMergeRequestParticipants(t *testing.T) {
 	}
 }
 
+func TestGetMergeRequestReviewers(t *testing.T) {
+	mux, client := setup(t)
+
+	mux.HandleFunc("/api/v4/projects/1/merge_requests/5/reviewers", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		testURL(t, r, "/api/v4/projects/1/merge_requests/5/reviewers")
+
+		fmt.Fprint(w, `[{"user":{"id":1,"name":"John Doe1","username":"user1","state":"active","avatar_url":"http://www.gravatar.com/avatar/c922747a93b40d1ea88262bf1aebee62?s=80&d=identicon","web_url":"http://localhost/user1"},"state":"unreviewed","created_at":"2022-07-27T17:03:27.684Z"},{"user":{"id":2,"name":"John Doe2","username":"user2","state":"active","avatar_url":"http://www.gravatar.com/avatar/10fc7f102be8de7657fb4d80898bbfe3?s=80&d=identicon","web_url":"http://localhost/user2"},"state":"reviewed","created_at":"2022-07-27T17:03:27.684Z"}]`)
+	})
+
+	mergeRequestReviewers, _, err := client.MergeRequests.GetMergeRequestReviewers("1", 5)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	createdAt := time.Date(2022, 0o7, 27, 17, 3, 27, 684000000, time.UTC)
+	user1 := BasicUser{ID: 1, Name: "John Doe1", Username: "user1", State: "active", AvatarURL: "http://www.gravatar.com/avatar/c922747a93b40d1ea88262bf1aebee62?s=80&d=identicon", WebURL: "http://localhost/user1"}
+	user2 := BasicUser{ID: 2, Name: "John Doe2", Username: "user2", State: "active", AvatarURL: "http://www.gravatar.com/avatar/10fc7f102be8de7657fb4d80898bbfe3?s=80&d=identicon", WebURL: "http://localhost/user2"}
+
+	assert.Len(t, mergeRequestReviewers, 2)
+	assert.Equal(t, "unreviewed", mergeRequestReviewers[0].State)
+	require.Equal(t, &user1, mergeRequestReviewers[0].User)
+	require.Equal(t, &createdAt, mergeRequestReviewers[0].CreatedAt)
+	assert.Equal(t, "reviewed", mergeRequestReviewers[1].State)
+	require.Equal(t, &user2, mergeRequestReviewers[1].User)
+	require.Equal(t, &createdAt, mergeRequestReviewers[1].CreatedAt)
+}
+
 func TestGetIssuesClosedOnMerge_Jira(t *testing.T) {
 	mux, client := setup(t)
 	mux.HandleFunc("/api/v4/projects/1/merge_requests/1/closes_issues", func(w http.ResponseWriter, r *http.Request) {
@@ -258,6 +400,52 @@ func TestGetIssuesClosedOnMerge_Jira(t *testing.T) {
 	assert.Len(t, issues, 1)
 	assert.Equal(t, "PROJECT-123", issues[0].ExternalID)
 	assert.Equal(t, "Title of this issue", issues[0].Title)
+}
+
+func TestListMergeRequestDiffs(t *testing.T) {
+	mux, client := setup(t)
+
+	mux.HandleFunc("/api/v4/projects/1/merge_requests/1/diffs", func(w http.ResponseWriter, r *http.Request) {
+		testMethod(t, r, http.MethodGet)
+		mustWriteHTTPResponse(t, w, "testdata/list_merge_request_diff.json")
+	})
+
+	opts := &ListMergeRequestDiffsOptions{
+		Page:    1,
+		PerPage: 2,
+	}
+
+	diffs, _, err := client.MergeRequests.ListMergeRequestDiffs(1, 1, opts)
+	if err != nil {
+		t.Errorf("MergeRequests.ListMergeRequestDiffs returned error: %v", err)
+	}
+
+	want := []*MergeRequestDiff{
+		{
+			OldPath:     "README",
+			NewPath:     "README",
+			AMode:       "100644",
+			BMode:       "100644",
+			Diff:        "@@ -1 +1 @@ -Title +README",
+			NewFile:     false,
+			RenamedFile: false,
+			DeletedFile: false,
+		},
+		{
+			OldPath:     "VERSION",
+			NewPath:     "VERSION",
+			AMode:       "100644",
+			BMode:       "100644",
+			Diff:        "@@ -1.9.7 +1.9.8",
+			NewFile:     false,
+			RenamedFile: false,
+			DeletedFile: false,
+		},
+	}
+
+	if !reflect.DeepEqual(want, diffs) {
+		t.Errorf("MergeRequests.ListMergeRequestDiffs returned %+v, want %+v", diffs, want)
+	}
 }
 
 func TestIntSliceOrString(t *testing.T) {
