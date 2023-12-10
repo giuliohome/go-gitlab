@@ -14,7 +14,7 @@ func main() {
 	fmt.Println("-------------------")
 	token := os.Getenv("GITLAB_ACCESS_TOKEN")
 	group := 25247
-	board_id := 671
+	board_id := 673
 
 	// Create a new GitLab client with your access token
 	gitlabClient, err := gitlab.NewClient(token, gitlab.WithBaseURL(baseURL))
